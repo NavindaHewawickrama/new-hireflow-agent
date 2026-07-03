@@ -22,7 +22,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Data\" />
     <Folder Include="Endpoints\" />
     <Folder Include="DTOs\" />
     <Folder Include="Common\" />
