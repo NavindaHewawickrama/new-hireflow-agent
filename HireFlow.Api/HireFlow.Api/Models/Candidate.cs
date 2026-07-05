@@ -1,4 +1,6 @@
-﻿namespace HireFlow.Api.Models
+﻿using System.Text.Json.Serialization;
+
+namespace HireFlow.Api.Models
 {
     public class Candidate
     {
@@ -6,6 +8,8 @@
 
         public int JobId {  get; set; }
 
+        // Ignore navigation property during JSON serialization
+        [JsonIgnore]
         public Job Job { get; set; } = null!;
 
         public string FileName { get; set; } = string.Empty;

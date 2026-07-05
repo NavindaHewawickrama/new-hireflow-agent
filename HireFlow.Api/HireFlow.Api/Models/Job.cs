@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace HireFlow.Api.Models
 {
@@ -26,7 +27,8 @@ namespace HireFlow.Api.Models
         public DateTime? DeletedAt { get; set; }
 
 
-        // Navigation
+        // Navigation - ignore during JSON serialization to avoid circular references
+        [JsonIgnore]
         public List<Candidate> Candidates { get; set; } = new();
     }
 }
