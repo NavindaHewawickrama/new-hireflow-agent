@@ -5,10 +5,11 @@ namespace HireFlow.Api.Models
 {
     public class Job
     {
+        [Key]
         public int Id { get; set; }
 
-        [Required(ErrorMessage ="Job title is required")]
-        [MaxLength(100,ErrorMessage ="Title cannot moreor less than 100 charachters")]
+        [Required(ErrorMessage = "Job title is required")]
+        [MaxLength(100, ErrorMessage = "Title cannot be more than 100 characters")]
         public string Title { get; set; } = string.Empty;
 
         public string? Department { get; set; }
@@ -26,8 +27,6 @@ namespace HireFlow.Api.Models
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? DeletedAt { get; set; }
 
-
-        // Navigation - ignore during JSON serialization to avoid circular references
         [JsonIgnore]
         public List<Candidate> Candidates { get; set; } = new();
     }

@@ -1,8 +1,11 @@
 using HireFlow.Api.Data;
 using HireFlow.Api.Endpoints;
 using Microsoft.EntityFrameworkCore;
+using HireFlow.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddUserSecrets<Program>();
 
 // Add services to the container
 builder.Services.AddEndpointsApiExplorer();
@@ -25,6 +28,10 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Register AI Service
+builder.Services.AddSingleton<IAiProvider, GeminiAiProvider>();
+builder.Services.AddSingleton<IAiService, AiService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
@@ -42,5 +49,6 @@ app.MapGet("/", () => "HireFlow API is running!");
 //register endpoints
 app.MapJobEndpoints();
 app.MapCandidateEndpoints();
+app.MapAiEndpoints();
 
 app.Run();
