@@ -26,7 +26,7 @@ builder.Services.AddSwaggerGen(options =>
 
 // Register DbContext with PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Register AI Service
 builder.Services.AddSingleton<IAiProvider, GeminiAiProvider>();
@@ -50,5 +50,6 @@ app.MapGet("/", () => "HireFlow API is running!");
 app.MapJobEndpoints();
 app.MapCandidateEndpoints();
 app.MapAiEndpoints();
+app.MapInterviewEndpoints();
 
 app.Run();
