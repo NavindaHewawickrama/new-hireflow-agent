@@ -29,7 +29,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Register AI Service
-builder.Services.AddSingleton<IAiProvider, GeminiAiProvider>();
+//builder.Services.AddSingleton<IAiProvider, GeminiAiProvider>();
 builder.Services.AddSingleton<IAiService, AiService>();
 
 var app = builder.Build();
@@ -51,5 +51,6 @@ app.MapJobEndpoints();
 app.MapCandidateEndpoints();
 app.MapAiEndpoints();
 app.MapInterviewEndpoints();
+app.MapOfferEndpoints();
 
 app.Run();
