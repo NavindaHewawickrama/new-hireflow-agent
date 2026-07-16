@@ -2,6 +2,11 @@ using HireFlow.Api.Data;
 using HireFlow.Api.Endpoints;
 using Microsoft.EntityFrameworkCore;
 using HireFlow.Api.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using HireFlow.Api.Auth;
+using Microsoft.AspNetCore.Authentication.Google;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +28,35 @@ builder.Services.AddSwaggerGen(options =>
         }
     });
 });
+
+//authentication
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultAuthenticateScheme = GoogleDefaults.AuthenticationScheme;
+})
+    .AddJwtBearer(options =>
+    {
+        var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwt.Issuer,
+            ValidAudience = jwt.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key))
+        };
+    })
+    .AddGoogle(options =>
+    {
+        options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
+        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+    });
+
+// Add Auth Service
+builder.Services.AddSingleton<IAuthService, AuthService>();
 
 // Register DbContext with PostgreSQL
 builder.Services.AddDbContext<AppDbContext>(options =>
