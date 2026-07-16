@@ -1,7 +1,10 @@
 import { PipelineProvider, usePipeline } from "./context/PipelineContext";
 import { ModalProvider, useModal } from "./context/ModalContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Sidebar } from "./components/Sidebar";
 import { Modal } from "./components/ui/Modal";
+import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
 import { JobSetupPage } from "./pages/JobSetupPage";
 import { CvScreeningPage } from "./pages/CvScreeningPage";
 import { InterviewRound1Page } from "./pages/InterviewRound1Page";
@@ -23,10 +26,52 @@ const PAGES: Record<number, () => React.JSX.Element> = {
   5: OfferLettersPage,
 };
 
+// Simple client-side routing based on pathname
+function getCurrentPage(): "login" | "register" | "app" {
+  const path = window.location.pathname;
+  if (path === "/register") return "register";
+  if (path === "/login") return "login";
+  return "app";
+}
+
 function PageRouter() {
   const { state } = usePipeline();
   const CurrentPage = PAGES[state.currentPage] ?? JobSetupPage;
   return <CurrentPage />;
+}
+
+function AuthGate() {
+  const { isAuthenticated, logout } = useAuth();
+  const page = getCurrentPage();
+
+  // Show login/register pages
+  if (!isAuthenticated) {
+    if (page === "register") {
+      return <RegisterPage />;
+    }
+    return <LoginPage />;
+  }
+
+  // Authenticated - show main app
+  return (
+    <div className="flex min-h-screen bg-bg">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 xl:mx-auto xl:w-full xl:max-w-6xl">
+        <PageRouter />
+      </main>
+      <GlobalModal />
+      
+      {/* Logout button in top right */}
+      <div className="fixed bottom-5 right-2">
+        <button
+          onClick={logout}
+          className="rounded border border-border2 bg-surface2 px-3 py-1.5 text-xs text-muted hover:text-text hover:bg-surface3 transition-colors"
+        >
+          Logout
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function GlobalModal() {
@@ -52,10 +97,12 @@ function Shell() {
 
 export default function App() {
   return (
-    <PipelineProvider>
-      <ModalProvider>
-        <Shell />
-      </ModalProvider>
-    </PipelineProvider>
+    <AuthProvider>
+      <PipelineProvider>
+        <ModalProvider>
+          <AuthGate />
+        </ModalProvider>
+      </PipelineProvider>
+    </AuthProvider>
   );
 }
