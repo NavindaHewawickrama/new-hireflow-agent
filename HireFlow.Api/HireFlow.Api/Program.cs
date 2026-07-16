@@ -29,7 +29,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-//authentication
+//authentication setup
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
