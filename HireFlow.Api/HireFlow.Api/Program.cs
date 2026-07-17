@@ -12,6 +12,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddUserSecrets<Program>();
 
+//add CORS policy
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+        .AllowAnyMethod()
+        .AllowAnyHeader();
+    });
+});
+
 // Add services to the container
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -94,6 +105,9 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddSingleton<IAiService, AiService>();
 
 var app = builder.Build();
+
+// Use CORS (before Authentication)
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
