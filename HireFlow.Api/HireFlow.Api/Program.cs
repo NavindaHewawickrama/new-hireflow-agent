@@ -86,5 +86,6 @@ app.MapCandidateEndpoints();
 app.MapAiEndpoints();
 app.MapInterviewEndpoints();
 app.MapOfferEndpoints();
+app.MapAuthEndpoints();
 
 app.Run();
