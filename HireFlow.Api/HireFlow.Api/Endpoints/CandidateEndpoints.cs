@@ -1,6 +1,7 @@
 ﻿using HireFlow.Api.Data;
 using HireFlow.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace HireFlow.Api.Endpoints
 {
@@ -11,7 +12,7 @@ namespace HireFlow.Api.Endpoints
             var group = app.MapGroup("/api/candidates");
 
             // Create Candidate
-            group.MapPost("/", async (Candidate candidate, AppDbContext context) =>
+            group.MapPost("/", [Authorize] async (Candidate candidate, AppDbContext context) =>
             {
                 if (candidate.JobId <= 0 || string.IsNullOrWhiteSpace(candidate.Name) || string.IsNullOrWhiteSpace(candidate.CVText))
                     return Results.BadRequest(new { message = "JobId, Name, and CV Text are required." });
@@ -35,7 +36,7 @@ namespace HireFlow.Api.Endpoints
             .WithName("CreateCandidate");
 
             // Get All Candidates
-            group.MapGet("/", async (AppDbContext context) =>
+            group.MapGet("/", [Authorize] async (AppDbContext context) =>
             {
                 var candidates = await context.Candidates
                     .Include(c => c.Job)
@@ -52,7 +53,7 @@ namespace HireFlow.Api.Endpoints
             .WithName("GetAllCandidates");
 
             // Get Candidates by Job
-            group.MapGet("/by-job", async (int jobId, AppDbContext context) =>
+            group.MapGet("/by-job",[Authorize] async (int jobId, AppDbContext context) =>
             {
                 if (jobId <= 0)
                     return Results.BadRequest(new { message = "Invalid Job ID." });
@@ -73,7 +74,7 @@ namespace HireFlow.Api.Endpoints
             .WithName("GetCandidatesByJob");
 
             // Get Single Candidate
-            group.MapGet("/{id}", async (int id, AppDbContext context) =>
+            group.MapGet("/{id}",[Authorize] async (int id, AppDbContext context) =>
             {
                 var candidate = await context.Candidates
                     .Include(c => c.Job)
@@ -87,7 +88,7 @@ namespace HireFlow.Api.Endpoints
             .WithName("GetCandidateById");
 
             // Delete Candidate
-            group.MapDelete("/{id}", async (int id, AppDbContext context) =>
+            group.MapDelete("/{id}",[Authorize] async (int id, AppDbContext context) =>
             {
                 var candidate = await context.Candidates.FindAsync(id);
                 if (candidate == null)
