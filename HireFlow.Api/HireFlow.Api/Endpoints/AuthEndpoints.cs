@@ -11,7 +11,7 @@ namespace HireFlow.Api.Endpoints
         {
             var group = app.MapGroup("/api/auth");
 
-            // Start Google Login
+            // 1. Start Google OAuth Login
             group.MapGet("/google-login", async (HttpContext context) =>
             {
                 await context.ChallengeAsync(GoogleDefaults.AuthenticationScheme, new AuthenticationProperties
@@ -21,7 +21,7 @@ namespace HireFlow.Api.Endpoints
             })
             .WithName("GoogleLogin");
 
-            // Google Callback
+            // 2. Google Callback
             group.MapGet("/google-callback", async (HttpContext context, IAuthService authService) =>
             {
                 var result = await context.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
@@ -40,7 +40,7 @@ namespace HireFlow.Api.Endpoints
                         Expires = DateTime.UtcNow.AddHours(2)
                     });
 
-                    return Results.Redirect("http://localhost:3000");
+                    return Results.Redirect("http://localhost:5173"); // Your React port
                 }
 
                 var claims = result.Principal.Claims.ToList();
@@ -48,9 +48,9 @@ namespace HireFlow.Api.Endpoints
                 var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value ?? "";
                 var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value ?? "User";
 
-                var generatedToken = authService.GenerateJwtToken(userId, email, name);
+                var token = authService.GenerateJwtToken(userId, email, name);
 
-                context.Response.Cookies.Append("authToken", generatedToken, new CookieOptions
+                context.Response.Cookies.Append("authToken", token, new CookieOptions
                 {
                     HttpOnly = true,
                     Secure = true,
@@ -58,16 +58,16 @@ namespace HireFlow.Api.Endpoints
                     Expires = DateTime.UtcNow.AddHours(2)
                 });
 
-                return Results.Redirect("http://localhost:3000");
+                return Results.Redirect("http://localhost:5173");
             })
             .WithName("GoogleCallback");
 
-            // Mock Login (for quick testing)
+            // 3. Mock Login 
             group.MapGet("/mock-login", (HttpContext context, IAuthService authService) =>
             {
-                var generatedToken = authService.GenerateJwtToken("mock-user", "mock@example.com", "Mock User");
+                var token = authService.GenerateJwtToken("mock-user", "mock@example.com", "Mock User");
 
-                context.Response.Cookies.Append("authToken", generatedToken, new CookieOptions
+                context.Response.Cookies.Append("authToken", token, new CookieOptions
                 {
                     HttpOnly = true,
                     Secure = true,
@@ -75,11 +75,14 @@ namespace HireFlow.Api.Endpoints
                     Expires = DateTime.UtcNow.AddHours(2)
                 });
 
-                return Results.Ok(new { message = "Mock login successful" });
+                return Results.Ok(new { 
+                    message = "Mock login successful",
+                    token = token,
+                });
             })
             .WithName("MockLogin");
 
-            // Logout
+            // 4. Logout
             group.MapPost("/logout", (HttpContext context) =>
             {
                 context.Response.Cookies.Delete("authToken");
