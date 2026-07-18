@@ -16,7 +16,17 @@ namespace HireFlow.Api.Auth
 
         public AuthService(IConfiguration configuration)
         {
-            _jwtOptions = configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
+            var options = configuration.GetSection("Authentication:Jwt").Get<JwtOptions>() ?? new JwtOptions();
+
+            if (options == null ||
+                string.IsNullOrWhiteSpace(options.Key) ||
+                string.IsNullOrWhiteSpace(options.Issuer) ||
+                string.IsNullOrWhiteSpace(options.Audience))
+            {
+                throw new InvalidOperationException("JWT configuration is missing.");
+            }
+
+            _jwtOptions = options;
         }
 
         public string GenerateJwtToken(string userId, string email, string name)

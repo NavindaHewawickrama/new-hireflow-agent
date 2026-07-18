@@ -69,11 +69,11 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
     .AddJwtBearer(options =>
     {
-        var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>();
+        var jwt = builder.Configuration.GetSection("Authentication:Jwt").Get<JwtOptions>();
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -109,8 +109,7 @@ var app = builder.Build();
 // Use CORS (before Authentication)
 app.UseCors("AllowAll");
 
-app.UseAuthentication();
-app.UseAuthorization();
+
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
@@ -120,6 +119,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Simple test endpoint
 app.MapGet("/", () => "HireFlow API is running!");
