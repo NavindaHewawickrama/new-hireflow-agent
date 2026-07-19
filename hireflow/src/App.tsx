@@ -41,7 +41,7 @@ function PageRouter() {
 }
 
 function AuthGate() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated } = useAuth();
   const page = getCurrentPage();
 
   // Show login/register pages
@@ -60,16 +60,6 @@ function AuthGate() {
         <PageRouter />
       </main>
       <GlobalModal />
-      
-      {/* Logout button in top right */}
-      <div className="fixed bottom-5 right-2">
-        <button
-          onClick={logout}
-          className="rounded border border-border2 bg-surface2 px-3 py-1.5 text-xs text-muted hover:text-text hover:bg-surface3 transition-colors"
-        >
-          Logout
-        </button>
-      </div>
     </div>
   );
 }

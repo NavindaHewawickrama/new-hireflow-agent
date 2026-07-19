@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/Button";
 
@@ -8,6 +9,7 @@ export function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -32,6 +34,9 @@ export function RegisterPage() {
     const success = await register(email, password, name);
     if (!success) {
       setError("Email already exists");
+    } else {
+      // Redirect to login page after successful registration
+      window.location.href = "/login";
     }
   }
 
@@ -85,13 +90,22 @@ export function RegisterPage() {
               <label className="mb-1.5 block font-mono text-[10px] uppercase tracking-wider text-muted">
                 Password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded border border-border2 bg-surface2 px-3 py-2.5 text-xs text-text outline-none transition-colors focus:border-accent"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded border border-border2 bg-surface2 px-3 py-2.5 pr-10 text-xs text-text outline-none transition-colors focus:border-accent"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-text"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             <div>

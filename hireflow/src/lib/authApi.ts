@@ -47,12 +47,14 @@ export async function register(userData: RegisterRequest): Promise<AuthResponse>
 }
 
 /**
- * Logout user (invalidate token if applicable)
+ * Logout user (invalidate token/cookie if applicable)
+ * Includes credentials to handle cookie-based authentication
  * @throws ApiError on failure
  */
 export async function logout(): Promise<void> {
   return apiFetch<void>("/auth/logout", {
     method: "POST",
+    credentials: "include",
   });
 }
 

@@ -5,6 +5,9 @@ using HireFlow.Api.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Core;
 using System.Security.Claims;
 
 namespace HireFlow.Api.Endpoints
@@ -16,10 +19,16 @@ namespace HireFlow.Api.Endpoints
             var group = app.MapGroup("/api/auth");
 
             // Register
-            group.MapPost("/register", async (RegisterDto dto, AppDbContext context, IAuthService authService) =>
+            group.MapPost("/register", async (RegisterDto dto, AppDbContext context, IAuthService authService, ILogger<Program> logger) =>
             {
-                if (await context.Users.AnyAsync(u => u.Email == dto.Email))
+
+                logger.LogInformation("Registration attempt for email: {Email}", dto.Email);
+
+                if (await context.Users.AnyAsync(u => u.Email == dto.Email)) {
+                    logger.LogWarning("Registration failed - Email already exists: {Email}", dto.Email);
                     return Results.BadRequest(new { message = "Email already exists" });
+                }
+
 
                 var user = new User
                 {
@@ -31,17 +40,24 @@ namespace HireFlow.Api.Endpoints
                 context.Users.Add(user);
                 await context.SaveChangesAsync();
 
+                logger.LogInformation("User registered successfully: {Email}", dto.Email);   //
+
                 return Results.Ok(new { message = "User registered successfully" });
             })
             .WithName("Register");
 
             // Login with Email + Password
-            group.MapPost("/login", async (LoginDto dto, AppDbContext db, IAuthService authService, HttpContext httpContext) =>
+            group.MapPost("/login", async (LoginDto dto, AppDbContext db, IAuthService authService, HttpContext httpContext, ILogger<Program> logger) =>
             {
+                logger.LogInformation("Login attempt for email: {Email}", dto.Email);
+
                 var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
 
                 if (user == null || !authService.VerifyPassword(dto.Password, user.PasswordHash))
-                    return Results.BadRequest(new {message = "Invalid Username or password!!"});
+                {
+                    logger.LogWarning("Failed login attempt for email: {Email}", dto.Email);
+                    return Results.BadRequest(new { message = "Invalid Username or password!!" });
+                }
 
                 var generatedToken = authService.GenerateJwtToken(user.Id.ToString(), user.Email, user.Name);
 
@@ -52,6 +68,8 @@ namespace HireFlow.Api.Endpoints
                     SameSite = SameSiteMode.Strict,
                     Expires = DateTime.UtcNow.AddHours(2)
                 });
+
+                logger.LogInformation("User logged in successfully: {Email} (ID: {UserId})", user.Email, user.Id);
 
                 return Results.Ok(new
                 {

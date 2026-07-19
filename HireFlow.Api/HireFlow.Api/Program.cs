@@ -7,10 +7,25 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using HireFlow.Api.Auth;
 using Microsoft.AspNetCore.Authentication.Google;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddUserSecrets<Program>();
+
+//configure serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .MinimumLevel.Information()
+    .WriteTo.Console()
+    .WriteTo.File("logs/HireFlow_.log",
+        rollingInterval: RollingInterval.Day,     // New file every day
+        retainedFileCountLimit: 30,               // Keep last 30 days
+        shared: true,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 //add CORS policy
 builder.Services.AddCors(options =>

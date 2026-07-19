@@ -1,5 +1,6 @@
-import { Download, Trash2 } from "lucide-react";
+import { Download, Trash2, LogOut } from "lucide-react";
 import { usePipeline } from "../context/PipelineContext";
+import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/Button";
 
 const NAV_ITEMS = [
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
  */
 export function Sidebar() {
   const { state, dispatch } = usePipeline();
+  const { logout } = useAuth();
   const { candidates, currentPage, completedSteps } = state;
 
   const stats = {
@@ -101,6 +103,14 @@ export function Sidebar() {
             onClick={resetAll}
           >
             <Trash2 size={14} /> Reset
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-center"
+            onClick={logout}
+          >
+            <LogOut size={14} /> Logout
           </Button>
         </div>
       </div>

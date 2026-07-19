@@ -1,5 +1,7 @@
 ﻿using HireFlow.Api.Models;
+using Serilog.Core;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace HireFlow.Api.Services
 {
@@ -12,9 +14,13 @@ namespace HireFlow.Api.Services
     {
         private readonly HttpClient _httpClient;
         private readonly string _apiKey;
+        private readonly ILogger<AiService> _logger;
 
-        public AiService(IConfiguration configuration)
+        public AiService(IConfiguration configuration, ILogger<AiService> logger)
         {
+
+            _logger = logger;
+
             _apiKey = configuration["OpenAI:ApiKey"]
                 ?? throw new Exception("OpenAI API Key not configured.");
 
@@ -92,17 +98,42 @@ namespace HireFlow.Api.Services
 
         public async Task<AiScreeningResult> ScreenCandidateAsync(Job job, string cvText)
         {
-            await Task.Delay(500);
 
-            int score = cvText.ToLower().Contains("experience") || cvText.ToLower().Contains("developer") ? 85 : 45;
+            _logger.LogInformation("Starting AI screening for candidate. Job: {JobTitle}, Threshold: {Threshold}",
+                job.Title, job.Threshold);
 
-            return new AiScreeningResult
+            try
             {
-                Score = score,
-                Reason = score >= job.Threshold ? "Strong match with relevant skills and experience" : "Does not meet the minimum requirements for the role",
-                Strengths = new List<string> { "Technical skills", "Relevant experience" },
-                Gaps = score >= job.Threshold ? new List<string>() : new List<string> { "Limited professional experience" }
-            };
+                await Task.Delay(500);
+
+                int score = cvText.ToLower().Contains("experience") || cvText.ToLower().Contains("developer") ? 85 : 45;
+
+                var result = new AiScreeningResult
+                {
+                    Score = score,
+                    Reason = score >= job.Threshold
+                        ? "Strong match with relevant skills and experience"
+                        : "Does not meet the minimum requirements for the role",
+                    Strengths = new List<string> { "Technical skills", "Relevant experience" },
+                    Gaps = score >= job.Threshold
+                        ? new List<string>()
+                        : new List<string> { "Limited professional experience" }
+                };
+
+                _logger.LogInformation("Mock AI Screening completed. Score: {Score}, Status: {Status}",
+                    result.Score, result.Score >= job.Threshold ? "Shortlisted" : "Rejected");
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "AI Screening failed for job {JobTitle}", job.Title);
+                return new AiScreeningResult
+                {
+                    Score = 50,
+                    Reason = "AI call failed"
+                };
+            }
         }
     }
 
@@ -113,4 +144,5 @@ namespace HireFlow.Api.Services
         public List<string> Strengths { get; set; } = new();
         public List<string> Gaps { get; set; } = new();
     }
+
 }
