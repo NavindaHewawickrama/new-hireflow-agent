@@ -3,14 +3,14 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/Button";
 
 export function RegisterPage() {
-  const { register } = useAuth();
+  const { register, isLoading, error: authError } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
@@ -29,7 +29,7 @@ export function RegisterPage() {
       return;
     }
 
-    const success = register(email, password, name);
+    const success = await register(email, password, name);
     if (!success) {
       setError("Email already exists");
     }
@@ -49,9 +49,9 @@ export function RegisterPage() {
           <h2 className="mb-6 font-mono text-lg font-medium text-text">Create Account</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+            {(error || authError) && (
               <div className="rounded border border-danger bg-surface2 px-3 py-2 text-xs text-danger">
-                {error}
+                {error || authError}
               </div>
             )}
 
@@ -107,8 +107,13 @@ export function RegisterPage() {
               />
             </div>
 
-            <Button type="submit" variant="primary" className="w-full justify-center">
-              Create Account
+            <Button 
+              type="submit" 
+              variant="primary" 
+              className="w-full justify-center"
+              disabled={isLoading}
+            >
+              {isLoading ? "Creating account..." : "Create Account"}
             </Button>
           </form>
 

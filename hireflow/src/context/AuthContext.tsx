@@ -1,58 +1,75 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
-
-interface User {
-  email: string;
-  name: string;
-}
+import { login as loginApi, register as registerApi, logout as logoutApi } from "../lib/authApi";
+import type { User } from "../types";
 
 interface AuthContextValue {
   user: User | null;
-  login: (email: string, password: string) => boolean;
-  register: (email: string, password: string, name: string) => boolean;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (email: string, password: string, name: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-// Dummy credentials for testing
-const DUMMY_USERS = [
-  { email: "admin@hireflow.com", password: "admin123", name: "Admin User" },
-  { email: "recruiter@hireflow.com", password: "recruit123", name: "Recruiter" },
-];
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  function login(email: string, password: string): boolean {
-    const foundUser = DUMMY_USERS.find(
-      (u) => u.email === email && u.password === password
-    );
-    if (foundUser) {
-      setUser({ email: foundUser.email, name: foundUser.name });
+  async function login(email: string, password: string): Promise<boolean> {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await loginApi({ email, password });
+      setUser(response.user);
       return true;
-    }
-    return false;
-  }
-
-  function register(email: string, password: string, name: string): boolean {
-    // Check if user already exists
-    const exists = DUMMY_USERS.some((u) => u.email === email);
-    if (exists) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      setError(message);
       return false;
+    } finally {
+      setIsLoading(false);
     }
-    // Add new user (in a real app, this would be an API call)
-    DUMMY_USERS.push({ email, password, name });
-    setUser({ email, name });
-    return true;
   }
 
-  function logout() {
-    setUser(null);
+  async function register(email: string, password: string, name: string): Promise<boolean> {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await registerApi({ email, password, name });
+      setUser(response.user);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Registration failed";
+      setError(message);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function logout() {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await logoutApi();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Logout failed";
+      setError(message);
+    } finally {
+      setUser(null);
+      setIsLoading(false);
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated: !!user, isLoading, error }}>
       {children}
     </AuthContext.Provider>
   );

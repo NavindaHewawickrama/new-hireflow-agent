@@ -3,12 +3,12 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "../components/ui/Button";
 
 export function LoginPage() {
-  const { login } = useAuth();
+  const { login, isLoading, error: authError } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
@@ -17,7 +17,7 @@ export function LoginPage() {
       return;
     }
 
-    const success = login(email, password);
+    const success = await login(email, password);
     if (!success) {
       setError("Invalid email or password");
     }
@@ -37,9 +37,9 @@ export function LoginPage() {
           <h2 className="mb-6 font-mono text-lg font-medium text-text">Sign In</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
+            {(error || authError) && (
               <div className="rounded border border-danger bg-surface2 px-3 py-2 text-xs text-danger">
-                {error}
+                {error || authError}
               </div>
             )}
 
@@ -69,8 +69,13 @@ export function LoginPage() {
               />
             </div>
 
-            <Button type="submit" variant="primary" className="w-full justify-center">
-              Sign In
+            <Button 
+              type="submit" 
+              variant="primary" 
+              className="w-full justify-center"
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
 

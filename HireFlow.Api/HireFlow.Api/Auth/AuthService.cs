@@ -2,6 +2,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using BCrypt.Net;
 
 namespace HireFlow.Api.Auth
 {
@@ -49,6 +50,16 @@ namespace HireFlow.Api.Auth
                 signingCredentials: creds);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        public string HashPassword(string password)
+        {
+            return BCrypt.Net.BCrypt.EnhancedHashPassword(password, 11);
+        }
+
+        public bool VerifyPassword(string password, string hash)
+        {
+            return BCrypt.Net.BCrypt.EnhancedVerify(password, hash);
         }
     }
 }

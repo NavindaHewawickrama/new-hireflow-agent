@@ -72,3 +72,9 @@ export const EMPTY_JOB: JobConfig = {
   salary: "",
   threshold: 60,
 };
+
+/** User profile returned by the auth API. */
+export interface User {
+  email: string;
+  name: string;
+}

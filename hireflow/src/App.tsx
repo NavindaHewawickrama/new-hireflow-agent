@@ -83,18 +83,6 @@ function GlobalModal() {
   );
 }
 
-function Shell() {
-  return (
-    <div className="min-h-screen bg-bg md:grid md:grid-cols-[200px_1fr] lg:grid-cols-[220px_1fr]">
-      <Sidebar />
-      <main className="overflow-y-auto p-4 sm:p-6 lg:p-8 xl:mx-auto xl:w-full xl:max-w-6xl">
-        <PageRouter />
-      </main>
-      <GlobalModal />
-    </div>
-  );
-}
-
 export default function App() {
   return (
     <AuthProvider>
