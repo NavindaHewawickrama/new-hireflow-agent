@@ -1,7 +1,7 @@
 // Base API configuration and fetch wrapper
 // Centralizes API endpoint configuration and common fetch options
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://localhost:7102/api";
 
 /**
  * Custom error class for API errors

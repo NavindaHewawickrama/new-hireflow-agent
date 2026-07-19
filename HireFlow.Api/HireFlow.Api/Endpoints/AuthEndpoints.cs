@@ -36,16 +36,16 @@ namespace HireFlow.Api.Endpoints
             .WithName("Register");
 
             // Login with Email + Password
-            group.MapPost("/login", async (LoginDto dto, AppDbContext context, IAuthService authService) =>
+            group.MapPost("/login", async (LoginDto dto, AppDbContext db, IAuthService authService, HttpContext httpContext) =>
             {
-                var user = await context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+                var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
 
                 if (user == null || !authService.VerifyPassword(dto.Password, user.PasswordHash))
-                    return Results.Unauthorized();
+                    return Results.BadRequest(new {message = "Invalid Username or password!!"});
 
-                var token = authService.GenerateJwtToken(user.Id.ToString(), user.Email, user.Name);
+                var generatedToken = authService.GenerateJwtToken(user.Id.ToString(), user.Email, user.Name);
 
-                context.Response.Cookies.Append("authToken", token, new CookieOptions
+                httpContext.Response.Cookies.Append("authToken", generatedToken, new CookieOptions
                 {
                     HttpOnly = true,
                     Secure = true,
@@ -56,7 +56,8 @@ namespace HireFlow.Api.Endpoints
                 return Results.Ok(new
                 {
                     message = "Login successful",
-                    user = new { user.Id, user.Name, user.Email }
+                    user = new { user.Id, user.Name, user.Email },
+                    token = generatedToken
                 });
             })
             .WithName("Login");
@@ -79,8 +80,8 @@ namespace HireFlow.Api.Endpoints
                 if (!result.Succeeded)
                 {
                     // Fallback to mock
-                    var token = authService.GenerateJwtToken("dev-user", "dev@example.com", "Development User");
-                    context.Response.Cookies.Append("authToken", token, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Expires = DateTime.UtcNow.AddHours(2) });
+                    var tokenNew = authService.GenerateJwtToken("dev-user", "dev@example.com", "Development User");
+                    context.Response.Cookies.Append("authToken", tokenNew, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Expires = DateTime.UtcNow.AddHours(2) });
                     return Results.Redirect("http://localhost:5173");
                 }
 
