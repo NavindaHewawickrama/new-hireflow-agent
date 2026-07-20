@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { Button } from "./ui/Button";
 
 const NAV_ITEMS = [
+  { page: 0, label: "Jobs" },
   { page: 1, label: "Job Setup" },
   { page: 2, label: "CV Screening" },
   { page: 3, label: "Interview R1" },

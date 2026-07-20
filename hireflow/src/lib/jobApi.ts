@@ -2,7 +2,6 @@
 // Handles job description creation and related API calls
 
 import { apiFetch } from "./api";
-import type { JobConfig } from "../types";
 
 export interface CreateJobRequest {
   title: string;

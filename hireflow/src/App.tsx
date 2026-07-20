@@ -6,6 +6,7 @@ import { Modal } from "./components/ui/Modal";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { JobSetupPage } from "./pages/JobSetupPage";
+import { JobsListPage } from "./pages/JobsListPage";
 import { CvScreeningPage } from "./pages/CvScreeningPage";
 import { InterviewRound1Page } from "./pages/InterviewRound1Page";
 import { InterviewRound2Page } from "./pages/InterviewRound2Page";
@@ -19,6 +20,7 @@ import { OfferLettersPage } from "./pages/OfferLettersPage";
  * for what this app actually needs.
  */
 const PAGES: Record<number, () => React.JSX.Element> = {
+  0: JobsListPage,
   1: JobSetupPage,
   2: CvScreeningPage,
   3: InterviewRound1Page,
@@ -36,7 +38,7 @@ function getCurrentPage(): "login" | "register" | "app" {
 
 function PageRouter() {
   const { state } = usePipeline();
-  const CurrentPage = PAGES[state.currentPage] ?? JobSetupPage;
+  const CurrentPage = PAGES[state.currentPage] ?? JobsListPage;
   return <CurrentPage />;
 }
 

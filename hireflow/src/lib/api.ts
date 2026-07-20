@@ -31,10 +31,14 @@ async function apiFetch<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
+  // Get token from localStorage
+  const token = localStorage.getItem("token");
+
   const config: RequestInit = {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   };

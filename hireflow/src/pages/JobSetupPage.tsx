@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { usePipeline } from "../context/PipelineContext";
+import { createJobDescription } from "../lib/jobApi";
 import { PageHeader } from "../components/PageHeader";
 import { TagInput } from "../components/ui/TagInput";
 import { Button } from "../components/ui/Button";
@@ -29,15 +30,17 @@ export function JobSetupPage() {
   const [skills, setSkills] = useState<string[]>(state.job.skills);
   const [quals, setQuals] = useState<string[]>(state.job.quals);
 
-  function handleSave() {
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
     if (!title.trim() || !desc.trim()) {
       alert("Please fill in Job Title and Description.");
       return;
     }
-    dispatch({
-      type: "SET_JOB",
-      payload: {
-        ...EMPTY_JOB,
+
+    setSaving(true);
+    try {
+      const jobData = {
         title: title.trim(),
         dept: dept.trim(),
         desc: desc.trim(),
@@ -45,10 +48,26 @@ export function JobSetupPage() {
         threshold,
         skills,
         quals,
-      },
-    });
-    dispatch({ type: "MARK_STEP_DONE", payload: 1 });
-    dispatch({ type: "GO_TO", payload: 2 });
+      };
+
+      // Create job via API
+      const createdJob = await createJobDescription(jobData);
+
+      // Update local state with the created job (including the ID from server)
+      dispatch({
+        type: "SET_JOB",
+        payload: {
+          ...EMPTY_JOB,
+          ...createdJob,
+        },
+      });
+      dispatch({ type: "MARK_STEP_DONE", payload: 1 });
+      dispatch({ type: "GO_TO", payload: 2 });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to create job. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -57,8 +76,8 @@ export function JobSetupPage() {
         stageLabel="Stage 01 / Job Configuration"
         title="Job Description Setup"
         action={
-          <Button variant="primary" onClick={handleSave}>
-            <Check size={14} /> Save & Continue
+          <Button variant="primary" onClick={handleSave} disabled={saving}>
+            <Check size={14} /> {saving ? "Saving..." : "Save & Continue"}
           </Button>
         }
       />
