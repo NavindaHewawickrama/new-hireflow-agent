@@ -14,7 +14,7 @@ export interface CreateJobRequest {
 }
 
 export interface JobResponse {
-  id: string;
+  id: number;
   title: string;
   dept: string;
   desc: string;
@@ -26,6 +26,47 @@ export interface JobResponse {
   updatedAt: string;
 }
 
+/** Wire shape returned by the API (matches HireFlow.Api.Models.Job, camelCased). */
+interface JobWire {
+  id: number;
+  title: string;
+  department: string | null;
+  description: string;
+  skills: string[];
+  qualifications: string[];
+  salaryRange: string | null;
+  threshold: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function toWirePayload(jobData: Partial<CreateJobRequest>) {
+  return {
+    title: jobData.title,
+    department: jobData.dept,
+    description: jobData.desc,
+    skills: jobData.skills,
+    qualifications: jobData.quals,
+    salaryRange: jobData.salary,
+    threshold: jobData.threshold,
+  };
+}
+
+function fromWire(job: JobWire): JobResponse {
+  return {
+    id: job.id,
+    title: job.title,
+    dept: job.department ?? "",
+    desc: job.description,
+    skills: job.skills,
+    quals: job.qualifications,
+    salary: job.salaryRange ?? "",
+    threshold: job.threshold,
+    createdAt: job.createdAt,
+    updatedAt: job.updatedAt,
+  };
+}
+
 /**
  * Create a new job description
  * @param jobData - Job configuration data
@@ -35,10 +76,11 @@ export interface JobResponse {
 export async function createJobDescription(
   jobData: CreateJobRequest
 ): Promise<JobResponse> {
-  return apiFetch<JobResponse>("/jobs", {
+  const result = await apiFetch<{ message: string; job: JobWire }>("/jobs", {
     method: "POST",
-    body: JSON.stringify(jobData),
+    body: JSON.stringify(toWirePayload(jobData)),
   });
+  return fromWire(result.job);
 }
 
 /**
@@ -47,8 +89,11 @@ export async function createJobDescription(
  * @returns Job data on success
  * @throws ApiError on failure
  */
-export async function getJobDescription(jobId: string): Promise<JobResponse> {
-  return apiFetch<JobResponse>(`/jobs/${jobId}`);
+export async function getJobDescription(jobId: number): Promise<JobResponse> {
+  const result = await apiFetch<{ message: string; job: JobWire }>(
+    `/jobs/by-id?jobId=${jobId}`
+  );
+  return fromWire(result.job);
 }
 
 /**
@@ -59,13 +104,14 @@ export async function getJobDescription(jobId: string): Promise<JobResponse> {
  * @throws ApiError on failure
  */
 export async function updateJobDescription(
-  jobId: string,
+  jobId: number,
   jobData: Partial<CreateJobRequest>
 ): Promise<JobResponse> {
-  return apiFetch<JobResponse>(`/jobs/${jobId}`, {
+  const result = await apiFetch<{ message: string; job: JobWire }>(`/jobs/${jobId}`, {
     method: "PUT",
-    body: JSON.stringify(jobData),
+    body: JSON.stringify(toWirePayload(jobData)),
   });
+  return fromWire(result.job);
 }
 
 /**
@@ -73,8 +119,8 @@ export async function updateJobDescription(
  * @param jobId - Job ID
  * @throws ApiError on failure
  */
-export async function deleteJobDescription(jobId: string): Promise<void> {
-  return apiFetch<void>(`/jobs/${jobId}`, {
+export async function deleteJobDescription(jobId: number): Promise<void> {
+  await apiFetch<{ message: string }>(`/jobs/${jobId}`, {
     method: "DELETE",
   });
 }
@@ -85,5 +131,8 @@ export async function deleteJobDescription(jobId: string): Promise<void> {
  * @throws ApiError on failure
  */
 export async function getAllJobs(): Promise<JobResponse[]> {
-  return apiFetch<JobResponse[]>("/jobs");
+  const result = await apiFetch<{ message: string; count: number; jobs: JobWire[] }>(
+    "/jobs"
+  );
+  return result.jobs.map(fromWire);
 }

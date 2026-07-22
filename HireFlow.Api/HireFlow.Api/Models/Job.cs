@@ -27,6 +27,12 @@ namespace HireFlow.Api.Models
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? DeletedAt { get; set; }
 
+        [Required]
+        public int CreatedByUserId { get; set; }
+
+        [JsonIgnore]
+        public User? CreatedByUser { get; set; }
+
         [JsonIgnore]
         public List<Candidate> Candidates { get; set; } = new();
     }

@@ -20,8 +20,8 @@ export function JobsListPage() {
     try {
       setLoading(true);
       setError(null);
-      const data: any = await getAllJobs();
-      setJobs(data.jobs);
+      const data = await getAllJobs();
+      setJobs(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load jobs");
     } finally {
@@ -29,7 +29,7 @@ export function JobsListPage() {
     }
   }
 
-  async function handleDelete(jobId: string, jobTitle: string) {
+  async function handleDelete(jobId: number, jobTitle: string) {
     if (!confirm(`Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`)) {
       return;
     }

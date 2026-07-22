@@ -89,7 +89,7 @@ namespace HireFlow.Api.Endpoints
             .WithName("GoogleLogin");
 
             // Google Callback
-            group.MapGet("/google-callback", async (HttpContext context, IAuthService authService, ILogger<Program> logger) =>
+            group.MapGet("/google-callback", async (HttpContext context, AppDbContext db, IAuthService authService, ILogger<Program> logger) =>
             {
                 logger.LogInformation("Google callback received");   // ← Log
 
@@ -98,17 +98,37 @@ namespace HireFlow.Api.Endpoints
                 if (!result.Succeeded)
                 {
                     logger.LogWarning("Google authentication failed");   // ← Log
-                    var tokenNew = authService.GenerateJwtToken("dev-user", "dev@example.com", "Development User");
-                    context.Response.Cookies.Append("authToken", tokenNew, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Expires = DateTime.UtcNow.AddHours(2) });
-                    return Results.Redirect("http://localhost:5173");
+                    return Results.Redirect("http://localhost:5173/login?error=google_auth_failed");
                 }
 
                 var claims = result.Principal.Claims.ToList();
-                var userId = claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value ?? "google-user";
-                var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value ?? "";
+                var email = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email)?.Value;
                 var name = claims.FirstOrDefault(c => c.Type == ClaimTypes.Name)?.Value ?? "User";
 
-                var token = authService.GenerateJwtToken(userId, email, name);
+                if (string.IsNullOrWhiteSpace(email))
+                {
+                    logger.LogWarning("Google callback did not return an email claim");   // ← Log
+                    return Results.Redirect("http://localhost:5173/login?error=google_auth_failed");
+                }
+
+                // Find-or-create the local User row so every job/candidate we
+                // create can be tied to a real, numeric CreatedByUserId - a
+                // bare Google claim isn't a row in our Users table.
+                var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+                if (user == null)
+                {
+                    user = new User
+                    {
+                        Email = email,
+                        Name = name,
+                        PasswordHash = authService.HashPassword(Guid.NewGuid().ToString())
+                    };
+                    db.Users.Add(user);
+                    await db.SaveChangesAsync();
+                    logger.LogInformation("Created new user from Google login: {Email}", email);   // ← Log
+                }
+
+                var token = authService.GenerateJwtToken(user.Id.ToString(), user.Email, user.Name);
 
                 context.Response.Cookies.Append("authToken", token, new CookieOptions { HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict, Expires = DateTime.UtcNow.AddHours(2) });
 
@@ -118,12 +138,17 @@ namespace HireFlow.Api.Endpoints
             })
             .WithName("GoogleCallback");
 
-            // Mock Login
-            group.MapGet("/mock-login", (HttpContext context, IAuthService authService, ILogger<Program> logger) =>
+            // Mock Login - development only, never exposed once ASPNETCORE_ENVIRONMENT != Development
+            group.MapGet("/mock-login", (HttpContext context, IAuthService authService, IHostEnvironment env, ILogger<Program> logger) =>
             {
+                if (!env.IsDevelopment())
+                {
+                    return Results.NotFound();
+                }
+
                 logger.LogInformation("Mock login used");   // ← Log
 
-                var token = authService.GenerateJwtToken("mock-user", "mock@example.com", "Mock User");
+                var token = authService.GenerateJwtToken("1", "mock@example.com", "Mock User");
 
                 context.Response.Cookies.Append("authToken", token, new CookieOptions
                 {

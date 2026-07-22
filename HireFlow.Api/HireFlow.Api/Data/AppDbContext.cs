@@ -18,6 +18,12 @@ namespace HireFlow.Api.Data
                 .HasOne(c => c.Job)
                 .WithMany(j => j.Candidates)
                 .HasForeignKey(c => c.JobId);
+
+            modelBuilder.Entity<Job>()
+                .HasOne(j => j.CreatedByUser)
+                .WithMany()
+                .HasForeignKey(j => j.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
