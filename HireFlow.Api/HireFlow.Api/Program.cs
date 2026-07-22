@@ -81,7 +81,11 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 //authentication setup
-builder.Services.AddAuthentication(options =>
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+var googleConfigured = !string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret);
+
+var authBuilder = builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -99,12 +103,20 @@ builder.Services.AddAuthentication(options =>
             ValidAudience = jwt.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwt.Key))
         };
-    })
-    .AddGoogle(options =>
-    {
-        options.ClientId = builder.Configuration["Authentication:Google:ClientId"];
-        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
     });
+
+// AddGoogle() validates ClientId/ClientSecret eagerly on every request that
+// touches auth, not just Google-specific ones - registering it unconditionally
+// means the whole API 500s on every request in any environment that hasn't
+// configured Google OAuth. Only wire it up when it's actually configured.
+if (googleConfigured)
+{
+    authBuilder.AddGoogle(options =>
+    {
+        options.ClientId = googleClientId!;
+        options.ClientSecret = googleClientSecret!;
+    });
+}
 
 builder.Services.AddAuthorization();
 
@@ -120,6 +132,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddSingleton<IAiService, AiService>();
 
 var app = builder.Build();
+
+// Apply pending EF Core migrations on startup. Keeps the container image
+// free of the EF CLI tooling - the published runtime image can't run
+// `dotnet ef database update` itself, so the app does it in-process instead.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 // Use CORS (before Authentication)
 app.UseCors("AllowAll");
