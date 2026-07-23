@@ -8,6 +8,8 @@ using System.Text;
 using HireFlow.Api.Auth;
 using Microsoft.AspNetCore.Authentication.Google;
 using Serilog;
+using System.Net;
+using System.Net.Sockets;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -128,7 +130,35 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Register AI Service
-//builder.Services.AddSingleton<IAiProvider, GeminiAiProvider>();
+// The "Gemini" client forces IPv4: on networks where IPv6 is advertised via DNS
+// but doesn't actually route (common with some ISPs/VPNs), HttpClient's default
+// Happy Eyeballs behavior tries IPv6 first and eats the whole request timeout
+// before falling back to IPv4 - even though IPv4 alone connects instantly.
+builder.Services.AddHttpClient("Gemini", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    ConnectTimeout = TimeSpan.FromSeconds(15),
+    ConnectCallback = async (context, cancellationToken) =>
+    {
+        var addresses = await Dns.GetHostAddressesAsync(
+            context.DnsEndPoint.Host, AddressFamily.InterNetwork, cancellationToken);
+
+        var socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        try
+        {
+            await socket.ConnectAsync(addresses[0], context.DnsEndPoint.Port, cancellationToken);
+            return new NetworkStream(socket, ownsSocket: true);
+        }
+        catch
+        {
+            socket.Dispose();
+            throw;
+        }
+    }
+});
 builder.Services.AddSingleton<IAiService, AiService>();
 
 var app = builder.Build();

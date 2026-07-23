@@ -1,21 +1,30 @@
-﻿using HireFlow.Api.Data;
+using HireFlow.Api.Data;
 using HireFlow.Api.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace HireFlow.Api.Endpoints
 {
     public static class CandidateEndpoints
     {
+        private static int GetUserId(ClaimsPrincipal user) =>
+            int.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
         public static void MapCandidateEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("/api/candidates");
+            var group = app.MapGroup("/api/candidates").RequireAuthorization();
 
-            // Create Candidate
-            group.MapPost("/", [Authorize] async (Candidate candidate, AppDbContext context) =>
+            // Create Candidate - only for a job owned by the current user
+            group.MapPost("/", async (Candidate candidate, ClaimsPrincipal user, AppDbContext context) =>
             {
+                var userId = GetUserId(user);
+
                 if (candidate.JobId <= 0 || string.IsNullOrWhiteSpace(candidate.Name) || string.IsNullOrWhiteSpace(candidate.CVText))
                     return Results.BadRequest(new { message = "JobId, Name, and CV Text are required." });
+
+                var jobOwned = await context.Jobs.AnyAsync(j => j.Id == candidate.JobId && j.CreatedByUserId == userId);
+                if (!jobOwned)
+                    return Results.NotFound(new { message = $"Job with ID {candidate.JobId} not found." });
 
                 // Prevent duplicates
                 var exists = await context.Candidates
@@ -24,6 +33,7 @@ namespace HireFlow.Api.Endpoints
                 if (exists)
                     return Results.BadRequest(new { message = $"Candidate '{candidate.Name}' already exists for this job." });
 
+                candidate.Id = 0;
                 context.Candidates.Add(candidate);
                 await context.SaveChangesAsync();
 
@@ -35,11 +45,14 @@ namespace HireFlow.Api.Endpoints
             })
             .WithName("CreateCandidate");
 
-            // Get All Candidates
-            group.MapGet("/", [Authorize] async (AppDbContext context) =>
+            // Get All Candidates - only for jobs owned by the current user
+            group.MapGet("/", async (ClaimsPrincipal user, AppDbContext context) =>
             {
+                var userId = GetUserId(user);
+
                 var candidates = await context.Candidates
                     .Include(c => c.Job)
+                    .Where(c => c.Job.CreatedByUserId == userId)
                     .OrderByDescending(c => c.CreatedAt)
                     .ToListAsync();
 
@@ -52,11 +65,17 @@ namespace HireFlow.Api.Endpoints
             })
             .WithName("GetAllCandidates");
 
-            // Get Candidates by Job
-            group.MapGet("/by-job",[Authorize] async (int jobId, AppDbContext context) =>
+            // Get Candidates by Job - only if the job is owned by the current user
+            group.MapGet("/by-job", async (int jobId, ClaimsPrincipal user, AppDbContext context) =>
             {
+                var userId = GetUserId(user);
+
                 if (jobId <= 0)
                     return Results.BadRequest(new { message = "Invalid Job ID." });
+
+                var jobOwned = await context.Jobs.AnyAsync(j => j.Id == jobId && j.CreatedByUserId == userId);
+                if (!jobOwned)
+                    return Results.NotFound(new { message = $"Job with ID {jobId} not found." });
 
                 var candidates = await context.Candidates
                     .Where(c => c.JobId == jobId)
@@ -73,25 +92,32 @@ namespace HireFlow.Api.Endpoints
             })
             .WithName("GetCandidatesByJob");
 
-            // Get Single Candidate
-            group.MapGet("/{id}",[Authorize] async (int id, AppDbContext context) =>
+            // Get Single Candidate - only if owned by the current user
+            group.MapGet("/{id}", async (int id, ClaimsPrincipal user, AppDbContext context) =>
             {
+                var userId = GetUserId(user);
+
                 var candidate = await context.Candidates
                     .Include(c => c.Job)
                     .FirstOrDefaultAsync(c => c.Id == id);
 
-                if (candidate == null)
+                if (candidate == null || candidate.Job.CreatedByUserId != userId)
                     return Results.NotFound(new { message = $"Candidate with ID {id} not found." });
 
                 return Results.Ok(new { message = "Success", candidate });
             })
             .WithName("GetCandidateById");
 
-            // Delete Candidate
-            group.MapDelete("/{id}",[Authorize] async (int id, AppDbContext context) =>
+            // Delete Candidate - only if owned by the current user
+            group.MapDelete("/{id}", async (int id, ClaimsPrincipal user, AppDbContext context) =>
             {
-                var candidate = await context.Candidates.FindAsync(id);
-                if (candidate == null)
+                var userId = GetUserId(user);
+
+                var candidate = await context.Candidates
+                    .Include(c => c.Job)
+                    .FirstOrDefaultAsync(c => c.Id == id);
+
+                if (candidate == null || candidate.Job.CreatedByUserId != userId)
                     return Results.NotFound(new { message = $"Candidate with ID {id} not found." });
 
                 context.Candidates.Remove(candidate);

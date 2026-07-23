@@ -23,6 +23,8 @@ export type InterviewScores = Partial<Record<ScoreDimension, number>>;
 
 export interface Candidate {
   id: string;
+  /** Backend-assigned Candidate.Id, set once the CV is persisted via POST /api/candidates. */
+  backendId?: number;
   filename: string;
   name: string;
   cv: string;
@@ -37,6 +39,8 @@ export interface Candidate {
 }
 
 export interface JobConfig {
+  /** Backend-assigned Job.Id, set once the job is saved via POST /api/jobs. */
+  id?: number;
   title: string;
   dept: string;
   desc: string;

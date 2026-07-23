@@ -1,36 +1,35 @@
-﻿using HireFlow.Api.Data;
+using HireFlow.Api.Data;
 using HireFlow.Api.Models;
 using HireFlow.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;   // ← Added
+using System.Security.Claims;
 
 namespace HireFlow.Api.Endpoints
 {
     public static class AiEndpoints
     {
+        private static int GetUserId(ClaimsPrincipal user) =>
+            int.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
         public static void MapAiEndpoints(this IEndpointRouteBuilder app)
         {
-            var group = app.MapGroup("/api/ai");
+            var group = app.MapGroup("/api/ai").RequireAuthorization();
 
-            // Screen a Candidate with AI
-            group.MapPost("/screen/{candidateId}", async (int candidateId, AppDbContext context, IAiService aiService, ILogger<Program> logger) =>
+            // Screen a Candidate with AI - only if the candidate's job is owned by the current user
+            group.MapPost("/screen/{candidateId}", async (int candidateId, ClaimsPrincipal user, AppDbContext context, IAiService aiService, ILogger<Program> logger) =>
             {
-                logger.LogInformation("AI Screening requested for CandidateId: {CandidateId}", candidateId);   // ← Log
+                var userId = GetUserId(user);
+                logger.LogInformation("AI Screening requested for CandidateId: {CandidateId} by UserId: {UserId}", candidateId, userId);   // ← Log
 
                 var candidate = await context.Candidates
                     .Include(c => c.Job)
                     .FirstOrDefaultAsync(c => c.Id == candidateId);
 
-                if (candidate == null)
+                if (candidate == null || candidate.Job == null || candidate.Job.CreatedByUserId != userId)
                 {
-                    logger.LogWarning("AI Screening failed - Candidate not found: {CandidateId}", candidateId);   // ← Log
+                    logger.LogWarning("AI Screening failed - Candidate not found or not owned. ID: {CandidateId}, UserId: {UserId}", candidateId, userId);   // ← Log
                     return Results.NotFound(new { message = $"Candidate with ID {candidateId} not found." });
-                }
-
-                if (candidate.Job == null)
-                {
-                    logger.LogWarning("AI Screening failed - No job linked to candidate: {CandidateId}", candidateId);   // ← Log
-                    return Results.BadRequest(new { message = "Candidate is not linked to any job." });
                 }
 
                 if (string.IsNullOrWhiteSpace(candidate.CVText))
@@ -48,6 +47,7 @@ namespace HireFlow.Api.Endpoints
                 candidate.Strengths = result.Strengths;
                 candidate.Gaps = result.Gaps;
                 candidate.Status = result.Score >= candidate.Job.Threshold ? "shortlisted" : "rejected";
+                candidate.UpdatedAt = DateTime.UtcNow;
 
                 await context.SaveChangesAsync();
 
@@ -66,7 +66,7 @@ namespace HireFlow.Api.Endpoints
             })
             .WithName("ScreenCandidate");
 
-            // Test AI (Mock)
+            // Test AI (real Gemini call, dev sanity check)
             group.MapGet("/test-ai", async (IAiService aiService, ILogger<Program> logger) =>
             {
                 logger.LogInformation("AI Test endpoint called");   // ← Log

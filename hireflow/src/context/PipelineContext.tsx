@@ -43,6 +43,7 @@ type Action =
   | { type: "MARK_STEP_DONE"; payload: number }
   | { type: "ADD_LOG"; payload: { level: LogLevel; message: string } }
   | { type: "ADD_CANDIDATE"; payload: Candidate }
+  | { type: "SET_CANDIDATE_BACKEND_ID"; payload: { id: string; backendId: number } }
   | {
       type: "SET_SCREENING_RESULT";
       payload: {
@@ -106,6 +107,14 @@ function reducer(state: PipelineState, action: Action): PipelineState {
 
     case "ADD_CANDIDATE":
       return { ...state, candidates: [...state.candidates, action.payload] };
+
+    case "SET_CANDIDATE_BACKEND_ID":
+      return {
+        ...state,
+        candidates: state.candidates.map((c) =>
+          c.id === action.payload.id ? { ...c, backendId: action.payload.backendId } : c
+        ),
+      };
 
     case "SET_SCREENING_RESULT":
       return {

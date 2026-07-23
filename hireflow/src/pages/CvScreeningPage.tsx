@@ -5,7 +5,7 @@ import { PageHeader } from "../components/PageHeader";
 import { Button } from "../components/ui/Button";
 import { CandidateCard } from "../components/CandidateCard";
 import { LogPanel } from "../components/LogPanel";
-import { screenCandidateCV } from "../lib/claudeApi";
+import { createCandidate, screenCandidate } from "../lib/candidateApi";
 import { generateId, guessName } from "../lib/utils";
 import type { Candidate } from "../types";
 
@@ -75,10 +75,11 @@ export function CvScreeningPage() {
   }
 
   async function screenAllCVs() {
-    if (!job.title) {
+    if (!job.title || !job.id) {
       alert("Please complete Job Setup first.");
       return;
     }
+    const jobId = job.id;
     const unscreened = candidates.filter((c) => c.score === null);
     if (unscreened.length === 0) {
       addLog("info", "All CVs already screened.");
@@ -93,13 +94,19 @@ export function CvScreeningPage() {
       setScreeningProgress(Math.round(((i + 1) / unscreened.length) * 100));
 
       try {
-        const result = await screenCandidateCV({
-          jobTitle: job.title,
-          jobDesc: job.desc,
-          skills: job.skills,
-          quals: job.quals,
-          cvText: candidate.cv,
-        });
+        let backendId = candidate.backendId;
+        if (!backendId) {
+          const created = await createCandidate({
+            jobId,
+            name: candidate.name,
+            fileName: candidate.filename,
+            cvText: candidate.cv,
+          });
+          backendId = created.id;
+          dispatch({ type: "SET_CANDIDATE_BACKEND_ID", payload: { id: candidate.id, backendId } });
+        }
+
+        const result = await screenCandidate(backendId);
 
         dispatch({
           type: "SET_SCREENING_RESULT",
@@ -109,13 +116,10 @@ export function CvScreeningPage() {
             reason: result.reason ?? "",
             strengths: result.strengths ?? [],
             gaps: result.gaps ?? [],
-            status: result.score >= job.threshold ? "shortlisted" : "rejected",
+            status: result.status,
           },
         });
-        addLog(
-          "ok",
-          `${candidate.name}: score ${result.score} → ${result.score >= job.threshold ? "shortlisted" : "rejected"}`
-        );
+        addLog("ok", `${candidate.name}: score ${result.score} → ${result.status}`);
       } catch (err) {
         dispatch({ type: "SET_SCREENING_ERROR", payload: { id: candidate.id } });
         addLog("err", `Error screening ${candidate.name}: ${(err as Error).message}`);
