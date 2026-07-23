@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Plus, Calendar } from "lucide-react";
+import { Plus, Calendar, Pencil } from "lucide-react";
 import { getAllJobs, deleteJobDescription } from "../lib/jobApi";
 import type { JobResponse } from "../lib/jobApi";
 import { PageHeader } from "../components/PageHeader";
 import { Button } from "../components/ui/Button";
 import { usePipeline } from "../context/PipelineContext";
+import { EMPTY_JOB } from "../types";
 
 export function JobsListPage() {
   const [jobs, setJobs] = useState<JobResponse[]>([]);
@@ -43,6 +44,15 @@ export function JobsListPage() {
   }
 
   function handleCreateNew() {
+    // Clear out whatever job was last loaded (e.g. from editing) - otherwise
+    // the new-job form would silently pre-fill with stale data, and worse,
+    // saving would PUT-update that old job instead of creating a new one.
+    dispatch({ type: "SET_JOB", payload: EMPTY_JOB });
+    dispatch({ type: "GO_TO", payload: 1 });
+  }
+
+  function handleEdit(job: JobResponse) {
+    dispatch({ type: "SET_JOB", payload: job });
     dispatch({ type: "GO_TO", payload: 1 });
   }
 
@@ -130,6 +140,9 @@ export function JobsListPage() {
                   </div>
                 </div>
                 <div className="ml-4 flex flex-col gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => handleEdit(job)}>
+                    <Pencil size={14} /> Edit
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { usePipeline } from "../context/PipelineContext";
-import { createJobDescription } from "../lib/jobApi";
+import { createJobDescription, updateJobDescription } from "../lib/jobApi";
 import { PageHeader } from "../components/PageHeader";
 import { TagInput } from "../components/ui/TagInput";
 import { Button } from "../components/ui/Button";
@@ -21,6 +21,12 @@ import { EMPTY_JOB } from "../types";
  */
 export function JobSetupPage() {
   const { state, dispatch } = usePipeline();
+
+  // Captured once per render, before any save happens - if the page was
+  // opened via "Edit" this is already set, so handleSave below know whether
+  // to PUT (update) or POST (create) without depending on state that might
+  // change mid-save.
+  const editingJobId = state.job.id;
 
   const [title, setTitle] = useState(state.job.title);
   const [dept, setDept] = useState(state.job.dept);
@@ -50,21 +56,22 @@ export function JobSetupPage() {
         quals,
       };
 
-      // Create job via API
-      const createdJob = await createJobDescription(jobData);
-
-      // Update local state with the created job (including the ID from server)
-      dispatch({
-        type: "SET_JOB",
-        payload: {
-          ...EMPTY_JOB,
-          ...createdJob,
-        },
-      });
-      dispatch({ type: "MARK_STEP_DONE", payload: 1 });
-      dispatch({ type: "GO_TO", payload: 2 });
+      if (editingJobId) {
+        const updatedJob = await updateJobDescription(editingJobId, jobData);
+        dispatch({ type: "SET_JOB", payload: { ...EMPTY_JOB, ...updatedJob } });
+        dispatch({
+          type: "ADD_LOG",
+          payload: { level: "ok", message: `Updated job: ${updatedJob.title}` },
+        });
+        dispatch({ type: "GO_TO", payload: 0 });
+      } else {
+        const createdJob = await createJobDescription(jobData);
+        dispatch({ type: "SET_JOB", payload: { ...EMPTY_JOB, ...createdJob } });
+        dispatch({ type: "MARK_STEP_DONE", payload: 1 });
+        dispatch({ type: "GO_TO", payload: 2 });
+      }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to create job. Please try again.");
+      alert(err instanceof Error ? err.message : "Failed to save job. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -74,10 +81,11 @@ export function JobSetupPage() {
     <div>
       <PageHeader
         stageLabel="Stage 01 / Job Configuration"
-        title="Job Description Setup"
+        title={editingJobId ? "Edit Job" : "Job Description Setup"}
         action={
           <Button variant="primary" onClick={handleSave} disabled={saving}>
-            <Check size={14} /> {saving ? "Saving..." : "Save & Continue"}
+            <Check size={14} />{" "}
+            {saving ? "Saving..." : editingJobId ? "Update Job" : "Save & Continue"}
           </Button>
         }
       />
