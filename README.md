@@ -1,257 +1,154 @@
 # HireFlow
 
-**AI-Powered Recruitment Pipeline System**
+**AI-powered CV screening and recruitment pipeline.**
 
-HireFlow is a modern, full-stack recruitment management platform that leverages artificial intelligence to streamline the hiring process. The system consists of a React frontend and a .NET 8.0 backend API.
+HireFlow takes a job description and a stack of CVs and runs them through the whole hiring pipeline: AI screening and scoring, two rounds of interview scoring, and AI-generated offer letters — all scoped per recruiter, so each user only ever sees their own jobs and candidates.
 
-## 🏗️ Project Structure
+The repo has two projects:
 
-This repository contains two main projects:
-
-- **[hireflow/](./hireflow/)** - React + TypeScript frontend application
-- **[HireFlow.Api/](./HireFlow.Api/)** - .NET 8.0 Web API backend
+- **[`hireflow/`](./hireflow)** — React + TypeScript frontend
+- **[`HireFlow.Api/`](./HireFlow.Api)** — .NET 8 Web API backend
 
 ---
 
-## 🚀 HireFlow Frontend (React)
+## How it works
 
-### Overview
-A modern, responsive single-page application built with React 19, TypeScript, and Vite. The frontend provides an intuitive interface for managing the entire recruitment pipeline.
+1. **Job Setup** — create (or edit) a job: title, department, description, required skills, must-have qualifications, salary range, and a screening threshold.
+2. **CV Screening** — upload CVs (`.txt`/`.md`), each one is persisted and scored 0–100 against the job by an AI call, with a reason, strengths, and gaps. Candidates at or above the job's threshold are shortlisted.
+3. **Interview Round 1 / Round 2** — score shortlisted candidates across four dimensions (technical, communication, problem solving, cultural fit). A candidate advances if their average is ≥ 60.
+4. **Offer Letters** — for every round-2-advanced candidate, generate a full offer letter (AI-written, using the candidate's name, role, department, salary, and interview scores).
 
-### Tech Stack
-- **Framework**: React 19.2.7 with TypeScript
-- **Build Tool**: Vite 8.1.1
-- **Styling**: Tailwind CSS 3.4.19
-- **Icons**: Lucide React 1.23.0
-- **Linting**: Oxlint 1.71.0
-- **Module System**: ES Modules
+You can also come back to an old job later — the **Open** button on the Jobs list reloads that job plus every candidate already linked to it, so you can keep adding CVs to a job you set up in a previous session.
 
-### Features
-The application is organized into 5 main pipeline stages:
+---
 
-1. **Job Setup** - Configure job postings and requirements
-2. **CV Screening** - AI-powered candidate screening and evaluation
-3. **Interview Round 1** - First round interview management
-4. **Interview Round 2** - Second round interview management
-5. **Offer Letters** - Generate and manage offer letters
+## Architecture
 
-### Project Structure
+| Layer | Stack |
+|---|---|
+| Frontend | React 19, TypeScript, Vite, Tailwind CSS |
+| Backend | .NET 8 (ASP.NET Core Minimal APIs) |
+| Database | SQL Server, via Entity Framework Core |
+| Auth | JWT (email/password with BCrypt hashing) + optional Google OAuth |
+| AI | Google Gemini (`gemini-flash-latest` by default), called server-side over plain REST — no SDK dependency |
+| Logging | Serilog (console + rolling daily file under `HireFlow.Api/HireFlow.Api/logs/`) |
+
+**The AI provider is Gemini, not Anthropic/Claude**, despite a file named `AiService.cs` — Gemini has a genuinely free tier, which is why it was chosen over paid-only providers. All AI calls happen **server-side only**; the frontend never talks to an AI provider directly, and never sees an API key.
+
+Every job, candidate, and AI call is scoped to the authenticated user via `Job.CreatedByUserId` — one user can never see, edit, or screen another user's jobs or candidates.
+
+### Repo structure
+
 ```
-hireflow/
-├── src/
-│   ├── components/       # Reusable UI components
-│   ├── context/          # React context providers (Pipeline, Modal)
-│   ├── pages/            # Main application pages
-│   ├── types/            # TypeScript type definitions
-│   ├── lib/              # Utility functions and helpers
-│   ├── App.tsx           # Main application component
-│   └── main.tsx          # Application entry point
-├── public/               # Static assets
-├── package.json          # Dependencies and scripts
-├── vite.config.ts        # Vite configuration
-├── tailwind.config.js    # Tailwind CSS configuration
-└── tsconfig.json         # TypeScript configuration
-```
-
-### Getting Started
-
-#### Prerequisites
-- Node.js (v18 or higher)
-- npm or yarn
-
-#### Installation
-```bash
-cd hireflow
-npm install
-```
-
-#### Development
-```bash
-npm run dev
-```
-The application will be available at `http://localhost:5173`
-
-#### Build
-```bash
-npm run build
-```
-
-#### Lint
-```bash
-npm run lint
+HireFlow/
+├── HireFlow.Api/HireFlow.Api/     # Backend (.NET 8 minimal API)
+│   ├── Auth/                      # JWT + BCrypt auth service
+│   ├── Data/                      # EF Core DbContext
+│   ├── DTOs/                      # Request/response records
+│   ├── Endpoints/                 # Job / Candidate / AI / Interview / Offer / Auth endpoints
+│   ├── Migrations/                # EF Core migrations
+│   ├── Models/                    # Job, Candidate, User
+│   ├── Services/                  # AiService (Gemini integration)
+│   ├── Dockerfile
+│   └── Program.cs
+├── hireflow/                      # Frontend (React + Vite)
+│   └── src/
+│       ├── components/            # Reusable UI (cards, modals, buttons)
+│       ├── context/                # PipelineContext (useReducer) + AuthContext + ModalContext
+│       ├── lib/                    # API clients (jobApi, candidateApi, authApi) + utils
+│       ├── pages/                  # One page per pipeline stage
+│       └── types/                  # Shared TypeScript types
+├── docker-compose.yml              # SQL Server + API + frontend, all containerized
+└── .env.example                    # Template for docker-compose secrets
 ```
 
 ---
 
-## 🔧 HireFlow.Api (.NET Backend)
+## Getting started (local, without Docker)
 
-### Overview
-A robust RESTful API built with .NET 8.0 that powers the HireFlow platform. It provides endpoints for managing jobs, candidates, and AI-powered recruitment features.
+### Prerequisites
 
-### Tech Stack
-- **Framework**: .NET 8.0 (ASP.NET Core Web API)
-- **Database**: PostgreSQL with Entity Framework Core 8.0.10
-- **AI Integration**: 
-  - Anthropic Claude SDK (5.10.0)
-  - Google Gemini AI (Google.Cloud.AIPlatform.V1 3.72.0)
-  - Microsoft.Extensions.AI (10.7.0)
-- **Documentation**: Swashbuckle.AspNetCore (Swagger/OpenAPI)
-- **ORM**: Entity Framework Core with Npgsql provider
+- .NET 8 SDK
+- Node.js 18+
+- SQL Server (e.g. SSMS / SQL Server Developer Edition) running locally
+- A free [Google Gemini API key](https://aistudio.google.com/apikey) (no credit card required)
 
-### Key Features
-- **AI-Powered Recruitment**: Integration with multiple AI providers for intelligent candidate screening
-- **Job Management**: Complete CRUD operations for job postings
-- **Candidate Tracking**: Manage candidates through the recruitment pipeline
-- **PostgreSQL Database**: Reliable data persistence with EF Core
-- **Swagger Documentation**: Interactive API documentation
-- **User Secrets**: Secure configuration management for API keys
+### Backend
 
-### Project Structure
-```
-HireFlow.Api/
-├── HireFlow.Api/
-│   ├── Program.cs                    # Application entry point
-│   ├── HireFlow.Api.csproj           # Project configuration
-│   ├── appsettings.json              # Application settings
-│   ├── appsettings.Development.json  # Development settings
-│   ├── docker-compose.yml            # Docker configuration
-│   ├── HireFlow.Api.http             # HTTP test file
-│   ├── Data/                         # Database context and migrations
-│   ├── DTOs/                         # Data Transfer Objects
-│   ├── Endpoints/                    # API endpoint definitions
-│   ├── Models/                       # Domain models
-│   ├── Services/                     # Business logic services
-│   ├── Common/                       # Shared utilities
-│   └── Migrations/                   # EF Core database migrations
-└── HireFlow.Api.slnx                 # Solution file
-```
-
-### API Endpoints
-- **Job Endpoints** - Manage job postings and requirements
-- **Candidate Endpoints** - Handle candidate data and screening
-
-### Getting Started
-
-#### Prerequisites
-- .NET 8.0 SDK
-- PostgreSQL database (running on port 5433 by default)
-- AI API keys (Anthropic Claude and/or Google Gemini)
-
-#### Configuration
-1. Set up the database connection string in `appsettings.json`:
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "**********************************" 🤣😂😎
-  }
-}
-```
-
-2. Configure AI API keys using User Secrets:
-```bash
-dotnet user-secrets set "Gemini:ApiKey" "your-api-key"
-```
-
-#### Installation
 ```bash
 cd HireFlow.Api/HireFlow.Api
-dotnet restore
-```
-
-#### Database Setup
-```bash
-# Apply migrations
+dotnet user-secrets set "Gemini:ApiKey" "<your-gemini-api-key>"
 dotnet ef database update
-```
-
-#### Development
-```bash
-dotnet run
-```
-The API will be available at `https://localhost:5001` (or configured port)
-
-#### Swagger Documentation
-When running in development mode, access Swagger UI at:
-```
-https://localhost:5001/swagger
-```
-
----
-
-## 🔗 Integration
-
-The frontend and backend work together to provide a seamless recruitment experience:
-
-1. **Frontend** (React) runs on `http://localhost:5173`
-2. **Backend** (.NET API) runs on `https://localhost:5001`
-3. **Database** (PostgreSQL) runs on `localhost:5433`
-
-### API Communication
-The React frontend communicates with the .NET backend through RESTful API calls. Configure the API base URL in the frontend to point to the backend server.
-
----
-
-## 🛠️ Development Workflow
-
-### Running Both Projects
-
-1. **Start PostgreSQL database** (if using Docker):
-```bash
-cd HireFlow.Api
-docker-compose up -d
-```
-
-2. **Start the Backend API**:
-```bash
-cd HireFlow.Api/HireFlow.Api
 dotnet run
 ```
 
-3. **Start the Frontend** (in a new terminal):
+The default connection string (`appsettings.json`) uses Windows Trusted Connection against a local SQL Server instance — no password needed if SQL Server is running as your own user. Swagger UI is at `/swagger` when running in Development.
+
+### Frontend
+
 ```bash
 cd hireflow
+cp .env.example .env   # defaults to https://localhost:7102/api, adjust if needed
+npm install
 npm run dev
 ```
 
-4. **Access the Application**:
-   - Frontend: `http://localhost:5173`
-   - API: `https://localhost:5001`
-   - Swagger: `https://localhost:5001/swagger`
+Opens at `http://localhost:5173`.
 
 ---
 
-## 📦 Dependencies
+## Getting started (Docker)
 
-### Frontend Key Dependencies
-- React 19.2.7
-- TypeScript ~6.0.2
-- Vite 8.1.1
-- Tailwind CSS 3.4.19
-- Lucide React 1.23.0
+```bash
+cp .env.example .env   # fill in MSSQL_SA_PASSWORD, JWT_KEY, GEMINI_API_KEY
+docker compose up -d
+```
 
-### Backend Key Dependencies
-- .NET 8.0
-- Entity Framework Core 8.0.10
-- PostgreSQL (Npgsql.EntityFrameworkCore.PostgreSQL 8.0.10)
-- Anthropic.SDK 5.10.0
-- Google.Cloud.AIPlatform.V1 3.72.0
-- Swashbuckle.AspNetCore 8.0.10
+This brings up three containers: `sqlserver` (SQL Server 2022), `api` (applies pending EF Core migrations automatically on startup), and `frontend` (built and served via nginx). Frontend on `:5173`, API on `:8080`.
 
 ---
 
-## 📝 License
+## Configuration reference
 
-This project is private and proprietary.
+All secrets are read from `dotnet user-secrets` locally, or from environment variables in Docker (`docker-compose.yml` / `.env`). **Never commit real values to `appsettings.json`.**
+
+| Key | Purpose | Required |
+|---|---|---|
+| `Gemini:ApiKey` | Google Gemini API key — powers CV screening and offer letter generation | Yes |
+| `Gemini:Model` | Gemini model ID (default: `gemini-flash-latest`) | No |
+| `Authentication:Jwt:Key` | Signing key for issued JWTs | Yes |
+| `Authentication:Google:ClientId` / `ClientSecret` | Google OAuth login | No — app runs fine without it, "Sign in with Google" is just unavailable |
+| `ConnectionStrings:DefaultConnection` | SQL Server connection string | Yes |
 
 ---
 
-## 👤 Author
+## API overview
 
-**Navinda Hewawickrama**
-- Email: hewawickraman@gmail.com
+All endpoints except `/api/auth/*` require a `Bearer` JWT and are scoped to the authenticated user.
+
+| Group | Endpoints |
+|---|---|
+| Auth | `POST /api/auth/register`, `/login`, `/logout`, `/google-login`, `/google-callback` |
+| Jobs | `GET/POST /api/jobs`, `GET /api/jobs/by-id`, `PUT/DELETE /api/jobs/{id}` |
+| Candidates | `GET/POST /api/candidates`, `GET /api/candidates/by-job`, `GET/DELETE /api/candidates/{id}` |
+| AI Screening | `POST /api/ai/screen/{candidateId}` |
+| Interviews | `POST /api/interviews/r1/{candidateId}`, `POST /api/interviews/r2/{candidateId}` |
+| Offers | `POST /api/offers/{candidateId}` (requires candidate status `r2-advanced`) |
 
 ---
 
-## 🚧 Status
+## Known limitations
 
-Active development - AI-powered recruitment pipeline system
+- **CV upload is plain text only** — `.txt`/`.md` files, no PDF/DOCX parsing. Only the extracted text is stored; the original file isn't kept anywhere.
+- **No real email sending.** Offer letters and interview "email preview" are generated/rendered in-app only — nothing is actually sent to a candidate's inbox.
+- **No automated test suite** — everything has been verified manually against a running instance.
+- **CORS is wide open** (`AllowAll`) — fine for local development, should be locked down before any real deployment.
+- **No refresh tokens** — JWTs simply expire (60 min default); logout clears local storage but doesn't invalidate the token server-side.
+- **No pagination** on job or candidate listings.
+- `Npgsql.EntityFrameworkCore.PostgreSQL` is still referenced in the `.csproj` but unused — the app runs on SQL Server only; this is leftover from an earlier iteration.
+
+---
+
+## License
+
+Private and proprietary.
