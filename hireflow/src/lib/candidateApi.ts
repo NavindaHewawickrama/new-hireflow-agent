@@ -4,6 +4,7 @@
 // never talks to an AI provider directly.
 
 import { apiFetch } from "./api";
+import type { Candidate, CandidateStatus, InterviewScores } from "../types";
 
 export interface CreateCandidateRequest {
   jobId: number;
@@ -18,6 +19,44 @@ interface CandidateWire {
   fileName: string;
   name: string;
   cvText: string;
+  score: number | null;
+  reason: string | null;
+  strengths: string[];
+  gaps: string[];
+  status: string;
+  r1Score: string | null;
+  r2Score: string | null;
+  offerLetter: string | null;
+}
+
+/** R1Score/R2Score are stored server-side as a serialized JSON object
+ * (e.g. `{"technical":80,...}`) - parse defensively since malformed or
+ * absent data shouldn't break loading the rest of the candidate. */
+function parseInterviewScores(json: string | null): InterviewScores {
+  if (!json) return {};
+  try {
+    return JSON.parse(json) as InterviewScores;
+  } catch {
+    return {};
+  }
+}
+
+function fromWire(c: CandidateWire): Candidate {
+  return {
+    id: String(c.id),
+    backendId: c.id,
+    filename: c.fileName,
+    name: c.name,
+    cv: c.cvText,
+    score: c.score,
+    reason: c.reason ?? "",
+    strengths: c.strengths ?? [],
+    gaps: c.gaps ?? [],
+    status: c.status as CandidateStatus,
+    r1Scores: parseInterviewScores(c.r1Score),
+    r2Scores: parseInterviewScores(c.r2Score),
+    offerLetter: c.offerLetter ?? "",
+  };
 }
 
 /** Persists an uploaded CV as a Candidate row tied to the given job. */
@@ -82,4 +121,13 @@ export async function generateOffer(candidateId: number): Promise<string> {
     method: "POST",
   });
   return result.offerLetter;
+}
+
+/** Loads every previously-saved candidate for a job - used when resuming work
+ * on a job created in an earlier session instead of the just-created one. */
+export async function getCandidatesByJob(jobId: number): Promise<Candidate[]> {
+  const result = await apiFetch<{ message: string; count: number; candidates: CandidateWire[] }>(
+    `/candidates/by-job?jobId=${jobId}`
+  );
+  return result.candidates.map(fromWire);
 }

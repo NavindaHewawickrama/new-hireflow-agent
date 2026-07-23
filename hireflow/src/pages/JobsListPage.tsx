@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Plus, Calendar, Pencil } from "lucide-react";
+import { Plus, Calendar, Pencil, FolderOpen } from "lucide-react";
 import { getAllJobs, deleteJobDescription } from "../lib/jobApi";
 import type { JobResponse } from "../lib/jobApi";
+import { getCandidatesByJob } from "../lib/candidateApi";
 import { PageHeader } from "../components/PageHeader";
 import { Button } from "../components/ui/Button";
 import { usePipeline } from "../context/PipelineContext";
@@ -11,6 +12,7 @@ export function JobsListPage() {
   const [jobs, setJobs] = useState<JobResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openingJobId, setOpeningJobId] = useState<number | null>(null);
   const { dispatch } = usePipeline();
 
   useEffect(() => {
@@ -54,6 +56,23 @@ export function JobsListPage() {
   function handleEdit(job: JobResponse) {
     dispatch({ type: "SET_JOB", payload: job });
     dispatch({ type: "GO_TO", payload: 1 });
+  }
+
+  /** Resumes work on a previously-created job: loads it plus every candidate
+   * already linked to it, then drops into CV Screening so more CVs can be
+   * added alongside the existing ones. */
+  async function handleOpen(job: JobResponse) {
+    setOpeningJobId(job.id);
+    try {
+      const candidates = await getCandidatesByJob(job.id);
+      dispatch({ type: "SET_JOB", payload: job });
+      dispatch({ type: "LOAD_CANDIDATES", payload: candidates });
+      dispatch({ type: "GO_TO", payload: 2 });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to load job candidates");
+    } finally {
+      setOpeningJobId(null);
+    }
   }
 
   if (loading) {
@@ -140,6 +159,14 @@ export function JobsListPage() {
                   </div>
                 </div>
                 <div className="ml-4 flex flex-col gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={openingJobId === job.id}
+                    onClick={() => handleOpen(job)}
+                  >
+                    <FolderOpen size={14} /> {openingJobId === job.id ? "Opening..." : "Open"}
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => handleEdit(job)}>
                     <Pencil size={14} /> Edit
                   </Button>
