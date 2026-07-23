@@ -9,7 +9,7 @@ import type {
   ScoreDimension,
 } from "../types";
 import { EMPTY_JOB } from "../types";
-import { calcAvgScore, generateId } from "../lib/utils";
+import { generateId } from "../lib/utils";
 
 /*
  * WHY useReducer + Context instead of alternatives:
@@ -29,10 +29,11 @@ import { calcAvgScore, generateId } from "../lib/utils";
  *
  * - useReducer specifically (over several useState calls) because many
  *   updates here are *transitions* that depend on the previous state in a
- *   non-trivial way (e.g. "advance R1" reads every candidate's r1Scores and
- *   derives a new status for each). Expressing each transition as a named
- *   action makes the state machine explicit and easy to trace/debug — you
- *   can log every action and see exactly what happened, in order.
+ *   non-trivial way (e.g. screening/interview results only patch the one
+ *   candidate they're about, out of a growing array). Expressing each
+ *   transition as a named action makes the state machine explicit and easy
+ *   to trace/debug — you can log every action and see exactly what happened,
+ *   in order.
  */
 
 // ---- Actions -----------------------------------------------------------
@@ -60,8 +61,7 @@ type Action =
       type: "UPDATE_INTERVIEW_SCORE";
       payload: { id: string; round: "r1" | "r2"; dim: ScoreDimension; value: number };
     }
-  | { type: "ADVANCE_R1" }
-  | { type: "FINALIZE_R2" }
+  | { type: "SET_INTERVIEW_STATUS"; payload: { id: string; status: CandidateStatus } }
   | { type: "SET_OFFER_LETTER"; payload: { id: string; letter: string } }
   | { type: "RESET" };
 
@@ -156,32 +156,12 @@ function reducer(state: PipelineState, action: Action): PipelineState {
       };
     }
 
-    case "ADVANCE_R1":
+    case "SET_INTERVIEW_STATUS":
       return {
         ...state,
-        candidates: state.candidates.map((c) => {
-          const eligible =
-            c.status === "shortlisted" ||
-            c.status === "r1-advanced" ||
-            c.status === "r1-rejected";
-          if (!eligible) return c;
-          const avg = calcAvgScore(c.r1Scores);
-          return { ...c, status: avg >= 60 ? "r1-advanced" : "r1-rejected" };
-        }),
-      };
-
-    case "FINALIZE_R2":
-      return {
-        ...state,
-        candidates: state.candidates.map((c) => {
-          const eligible =
-            c.status === "r1-advanced" ||
-            c.status === "r2-advanced" ||
-            c.status === "r2-rejected";
-          if (!eligible) return c;
-          const avg = calcAvgScore(c.r2Scores);
-          return { ...c, status: avg >= 60 ? "r2-advanced" : "r2-rejected" };
-        }),
+        candidates: state.candidates.map((c) =>
+          c.id === action.payload.id ? { ...c, status: action.payload.status } : c
+        ),
       };
 
     case "SET_OFFER_LETTER":

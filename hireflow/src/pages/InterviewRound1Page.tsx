@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowRight, UsersRound } from "lucide-react";
 import { usePipeline } from "../context/PipelineContext";
 import { useModal } from "../context/ModalContext";
@@ -6,7 +7,8 @@ import { Button } from "../components/ui/Button";
 import { InterviewCard } from "../components/InterviewCard";
 import { EmptyState } from "../components/ui/EmptyState";
 import { EmailPreview } from "../components/modals/EmailPreview";
-import { calcAvgScore } from "../lib/utils";
+import { submitR1Score } from "../lib/candidateApi";
+import { SCORE_DIMENSIONS } from "../lib/utils";
 import type { Candidate } from "../types";
 
 const ELIGIBLE_STATUSES: Candidate["status"][] = ["shortlisted", "r1-advanced", "r1-rejected"];
@@ -14,14 +16,41 @@ const ELIGIBLE_STATUSES: Candidate["status"][] = ["shortlisted", "r1-advanced", 
 export function InterviewRound1Page() {
   const { state, dispatch } = usePipeline();
   const { openModal } = useModal();
+  const [isAdvancing, setIsAdvancing] = useState(false);
   const shortlisted = state.candidates.filter((c) => ELIGIBLE_STATUSES.includes(c.status));
 
-  function handleAdvance() {
-    // Compute the advanced count locally (rather than reading state right
-    // after dispatch) since state updates aren't reflected synchronously —
-    // this keeps the log message accurate to what ADVANCE_R1 will produce.
-    const advancedCount = shortlisted.filter((c) => calcAvgScore(c.r1Scores) >= 60).length;
-    dispatch({ type: "ADVANCE_R1" });
+  async function handleAdvance() {
+    setIsAdvancing(true);
+    let advancedCount = 0;
+
+    for (const candidate of shortlisted) {
+      if (!candidate.backendId) {
+        dispatch({
+          type: "ADD_LOG",
+          payload: { level: "err", message: `${candidate.name}: not linked to a saved candidate record, skipped.` },
+        });
+        continue;
+      }
+
+      try {
+        // Untouched sliders visually show 50 (InterviewCard's display default)
+        // but aren't recorded in r1Scores until dragged - fill them in so what
+        // gets submitted always matches what's on screen.
+        const normalizedScores = Object.fromEntries(
+          SCORE_DIMENSIONS.map(({ key }) => [key, candidate.r1Scores[key] ?? 50])
+        );
+        const result = await submitR1Score(candidate.backendId, normalizedScores);
+        dispatch({ type: "SET_INTERVIEW_STATUS", payload: { id: candidate.id, status: result.status } });
+        if (result.status === "r1-advanced") advancedCount++;
+      } catch (err) {
+        dispatch({
+          type: "ADD_LOG",
+          payload: { level: "err", message: `Failed to submit R1 score for ${candidate.name}: ${(err as Error).message}` },
+        });
+      }
+    }
+
+    setIsAdvancing(false);
     dispatch({ type: "MARK_STEP_DONE", payload: 3 });
     dispatch({
       type: "ADD_LOG",
@@ -40,8 +69,8 @@ export function InterviewRound1Page() {
         stageLabel="Stage 03 / First Round"
         title="Interview Round 1"
         action={
-          <Button variant="primary" onClick={handleAdvance}>
-            <ArrowRight size={14} /> Advance Top Candidates
+          <Button variant="primary" onClick={handleAdvance} disabled={isAdvancing || shortlisted.length === 0}>
+            <ArrowRight size={14} /> {isAdvancing ? "Submitting..." : "Advance Top Candidates"}
           </Button>
         }
       />

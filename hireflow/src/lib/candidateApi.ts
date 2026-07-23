@@ -48,3 +48,30 @@ export async function screenCandidate(candidateId: number): Promise<ScreeningRes
     method: "POST",
   });
 }
+
+export interface InterviewScoringResponse {
+  averageScore: number;
+  status: "r1-advanced" | "r1-rejected" | "r2-advanced" | "r2-rejected";
+}
+
+/** Persists a candidate's Round 1 interview scores and returns the computed status. */
+export async function submitR1Score(
+  candidateId: number,
+  scores: Record<string, number>
+): Promise<InterviewScoringResponse> {
+  return apiFetch<InterviewScoringResponse>(`/interviews/r1/${candidateId}`, {
+    method: "POST",
+    body: JSON.stringify(scores),
+  });
+}
+
+/** Persists a candidate's Round 2 interview scores and returns the computed status. */
+export async function submitR2Score(
+  candidateId: number,
+  scores: Record<string, number>
+): Promise<InterviewScoringResponse> {
+  return apiFetch<InterviewScoringResponse>(`/interviews/r2/${candidateId}`, {
+    method: "POST",
+    body: JSON.stringify(scores),
+  });
+}
