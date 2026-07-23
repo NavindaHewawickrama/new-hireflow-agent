@@ -75,3 +75,11 @@ export async function submitR2Score(
     body: JSON.stringify(scores),
   });
 }
+
+/** Generates (server-side, via Gemini) and persists an offer letter for an r2-advanced candidate. */
+export async function generateOffer(candidateId: number): Promise<string> {
+  const result = await apiFetch<{ message: string; offerLetter: string }>(`/offers/${candidateId}`, {
+    method: "POST",
+  });
+  return result.offerLetter;
+}

@@ -7,7 +7,7 @@ import { Button } from "../components/ui/Button";
 import { Pill } from "../components/ui/Pill";
 import { EmptyState } from "../components/ui/EmptyState";
 import { OfferLetterView } from "../components/modals/OfferLetterView";
-import { generateOfferLetter } from "../lib/claudeApi";
+import { generateOffer } from "../lib/candidateApi";
 import { calcAvgScore } from "../lib/utils";
 import type { Candidate } from "../types";
 
@@ -28,17 +28,18 @@ export function OfferLettersPage() {
   const finalists = state.candidates.filter((c) => c.status === "r2-advanced");
 
   async function generateOne(candidate: Candidate) {
+    if (!candidate.backendId) {
+      dispatch({
+        type: "ADD_LOG",
+        payload: { level: "err", message: `${candidate.name}: not linked to a saved candidate record, skipped.` },
+      });
+      return;
+    }
+
     dispatch({ type: "ADD_LOG", payload: { level: "info", message: `Generating offer for ${candidate.name}...` } });
     setGeneratingId(candidate.id);
     try {
-      const letter = await generateOfferLetter({
-        candidateName: candidate.name,
-        jobTitle: state.job.title,
-        dept: state.job.dept,
-        salary: state.job.salary,
-        r1Score: calcAvgScore(candidate.r1Scores),
-        r2Score: calcAvgScore(candidate.r2Scores),
-      });
+      const letter = await generateOffer(candidate.backendId);
       dispatch({ type: "SET_OFFER_LETTER", payload: { id: candidate.id, letter } });
       dispatch({ type: "ADD_LOG", payload: { level: "ok", message: `Offer letter generated for ${candidate.name}` } });
     } catch (err) {
